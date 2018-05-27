@@ -1,0 +1,23 @@
+*{
+    margin: 0;
+    padding: 0;
+    box-sizing:border-box;
+}
+#code-text{
+    height: 100vh;
+    width: 100%;
+}
+.token.comment,.token.property,
+.token.selector,.token.function,.token.punctuation{
+    color: black
+}
+html{
+    color:black;
+    
+}
+#play,#stop{
+    width: 50px;
+    height: 30px;
+}
+
+
