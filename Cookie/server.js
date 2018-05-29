@@ -23,6 +23,34 @@ var server = http.createServer(function(request, response){
 
   if(path === '/'){
     let string = fs.readFileSync('./index.html', 'utf8')
+    console.log(request.headers.cookie)
+    let cookies  = request.headers.cookie.split(';')//['emaili =21@','a=1']
+    let hash = {}
+    for(let i =0;i<cookies.length;i++){
+      let parts = cookies[i].split('=')
+      let key = parts[0]
+      let value  = parts[1]
+      hash[key] = value
+    }
+    console.log(hash)
+    let email  = hash.sign_in_email
+    let users = fs.readFileSync('./Repository/users','utf8')
+    users = JSON.parse(users)
+    let foundUser
+    for(let i=0;i<users.length;i++){
+      if(users[i].email === email){
+        foundUser = users[i]
+        break
+      }
+    }
+    if(foundUser){
+      string = string.replace('__password__',foundUser.email)
+    }else{
+      string = string.replace('__password__','不知道')
+    }
+
+
+
     response.statusCode = 200
     response.setHeader('Content-Type', 'text/html;charset=utf-8')
     response.write(string)
@@ -43,11 +71,10 @@ var server = http.createServer(function(request, response){
         let parts = string.split('=') // ['email','1']
         let key  = parts[0]
         let value = parts[1]
-        hash[key] = value // hash['email'] = '1'
-      })
+        hash[key] = decodeURIComponent(value) // hash['email'] = '1'
+      })//decodeURIComponent 翻译@
       let {email,password,password_confirmation}  = hash
-      console.log(hash)
-      if(email === -1){
+      if(email.indexOf('@') === -1){
         response.statusCode = 400
         response.setHeader('Content-Type','applitcation/json;charsef=utf-8')
         response.write(`{
@@ -59,12 +86,74 @@ var server = http.createServer(function(request, response){
         response.statusCode = 400
         response.write('passsword  not mach')
       }else{
-        response.statusCOde = 200
+        var users = fs.readFileSync('./Repository/users','utf8')
+        try{
+          users = JSON.parse(users)
+        }catch(exception){
+          users = []
+        }
+         let inUse = false
+        for(let i=0; i<users.length; i++){
+          let user = users[i]
+          if(user.email === email){
+            inUse = true
+            break;
+          }
+        }
+        if(inUse){
+          response.statusCode = 400
+          response.write('email in use')
+        }else{
+          users.push({email: email, password: password})
+          var usersString = JSON.stringify(users)
+          fs.writeFileSync('./Repository/users', usersString)
+          response.statusCode = 200
+        }
       }
-      
       response.end()
     })
   
+  }else if(path === '/sign_in' && method === 'GET'){
+    let string = fs.readFileSync('./sign_in.html', 'utf8')
+    response.statusCode = 200
+    response.setHeader('Content-Type', 'text/html ;charset=utf-8')
+    response.write(string)
+    response.end()
+  }else if(path === '/sign_in' && method === 'POST'){
+    readBody(request).then((body)=>{
+      let strings = body.split('&')// ['email=1','password=2','password_confirmation=3']
+      let hash = {}
+      strings.forEach((string)=>{
+        // string == 'emsill=1'
+        let parts = string.split('=') // ['email','1']
+        let key  = parts[0]
+        let value = parts[1]
+        hash[key] = decodeURIComponent(value) // hash['email'] = '1'
+      })//decodeURIComponent 翻译@
+      let {email,password}  = hash
+      let users = fs.readFileSync('./Repository/users','utf8')
+      try{
+        users = JSON.parse(users)
+      }catch(exception){
+        users = []
+      }
+       let found
+      for(let i=0; i<users.length; i++){
+       if(users[i].email === email && users[i].password === password){
+         found = true
+         break
+       }
+      }
+      if(found){
+
+        response.setHeader('Set-Cookie',`sign_in_email=${email}`)
+        response.statusCode = 200
+      }else{
+        response.statusCode = 400
+      }
+      response.end()
+
+    })
   }else if(path === '/main.js'){
     let string = fs.readFileSync('./main.js', 'utf8')
     response.statusCode = 200
